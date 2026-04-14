@@ -1,6 +1,6 @@
 # AIM Flow
 
-Free, open-source, fully local speech-to-text for macOS — no cloud, no API keys, no subscription.
+Free, open-source, fully local speech-to-text for macOS and Linux — no cloud, no API keys, no subscription.
 
 AIM Flow lives in your menu bar. Press a hotkey, speak, and the transcribed text is automatically pasted into whatever field you were typing in.
 
@@ -20,15 +20,23 @@ Created by Jordi Lopez for the [Artificial Intelligence Multidisciplinary Societ
 
 ## Requirements
 
+### macOS
 - macOS 12 or later
 - Python 3.11 or 3.12 (3.12 recommended)
 - [Homebrew](https://brew.sh)
+
+### Linux (Ubuntu / Debian)
+- Ubuntu 20.04+ or any Debian-based distro
+- Python 3.11 or 3.12
+- A system tray (GNOME with AppIndicator extension, KDE, XFCE, etc.)
 
 ---
 
 ## Installation
 
-### Step 1 — Clone and install
+### macOS
+
+#### Step 1 — Clone and install
 
 ```bash
 git clone https://github.com/jangel19/aim-flow.git
@@ -38,7 +46,7 @@ cd aim-flow
 
 This installs `ffmpeg` and `portaudio` via Homebrew, creates a Python virtual environment, installs all dependencies, and generates the app icon.
 
-### Step 2 — Build the app
+#### Step 2 — Build the app
 
 ```bash
 ./scripts/build_app.sh
@@ -46,7 +54,7 @@ This installs `ffmpeg` and `portaudio` via Homebrew, creates a Python virtual en
 
 This creates `dist/AIM Flow.app`.
 
-### Step 3 — Move to Applications
+#### Step 3 — Move to Applications
 
 ```bash
 cp -r "dist/AIM Flow.app" /Applications/
@@ -54,11 +62,11 @@ cp -r "dist/AIM Flow.app" /Applications/
 
 Or drag `dist/AIM Flow.app` to your `/Applications` folder in Finder.
 
-### Step 4 — Launch AIM Flow
+#### Step 4 — Launch AIM Flow
 
 Open `/Applications/AIM Flow.app`. The AIMS "A" logo will appear in your menu bar.
 
-### Step 5 — Grant permissions (one-time setup)
+#### Step 5 — Grant permissions (one-time setup)
 
 This is the most important step. Without these, the hotkey and paste will not work.
 
@@ -73,6 +81,34 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 **After enabling both Accessibility and Input Monitoring, quit and relaunch AIM Flow.** macOS does not apply permission changes to a running process.
 
 > Tip: If AIM Flow does not appear in the Accessibility or Input Monitoring list, try using the hotkey or the "Toggle Recording" menu item once — macOS will add it to the list automatically.
+
+---
+
+### Linux
+
+#### Step 1 — Clone and switch to the Linux branch
+
+```bash
+git clone https://github.com/jangel19/aim-flow.git
+cd aim-flow
+git checkout linux
+cd aim-flow-linux
+```
+
+#### Step 2 — Install and run
+
+```bash
+bash install_linux.sh
+./run_linux.sh
+```
+
+`install_linux.sh` uses `apt-get` to install `ffmpeg`, `portaudio19-dev`, `libdbus-1-dev`, `xclip`, and `libnotify-bin`, then creates a Python virtual environment and installs all Python dependencies.
+
+The AIMS "A" logo will appear in your system tray.
+
+> **GNOME users:** The system tray is hidden by default. Install the [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/) extension to make it visible.
+
+> **Wayland users:** Clipboard and paste work via `wl-clipboard`. For keystroke injection without XWayland, install `ydotool` and ensure its daemon (`ydotoold`) is running.
 
 ---
 
@@ -91,28 +127,52 @@ The Whisper model (`base`) is downloaded automatically on first use (~140 MB). S
 
 ## Run from source (no build required)
 
+**macOS**
 ```bash
 ./run.sh
 ```
-
 Grant Accessibility and Input Monitoring to **Terminal** (or whichever terminal app you use) instead of AIM Flow.
+
+**Linux**
+```bash
+cd aim-flow-linux
+./run_linux.sh
+```
 
 ---
 
 ## Auto-start on login
 
-**System Settings → General → Login Items → +** and add `/Applications/AIM Flow.app`.
+**macOS** — **System Settings → General → Login Items → +** and add `/Applications/AIM Flow.app`.
+
+**Linux** — Create a `.desktop` entry in `~/.config/autostart/`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=AIM Flow
+Exec=/path/to/aim-flow-linux/run_linux.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+```
 
 ---
 
 ## Tech stack
 
-- [rumps](https://github.com/jaredks/rumps) — macOS menu bar framework
 - [openai-whisper](https://github.com/openai/whisper) — local speech recognition
 - [PyAudio](https://people.csail.mit.edu/hubert/pyaudio/) — microphone capture
 - [pynput](https://github.com/moses-palmer/pynput) — global hotkey and paste
+
+**macOS only**
+- [rumps](https://github.com/jaredks/rumps) — menu bar framework
 - [pyobjc](https://pyobjc.readthedocs.io) — AppKit image rendering
 - [PyInstaller](https://pyinstaller.org) — .app bundle packaging
+
+**Linux only**
+- [pystray](https://github.com/moses-palmer/pystray) — system tray icon
+- [Pillow](https://python-pillow.org) — tray icon rendering
 
 ---
 
@@ -135,8 +195,14 @@ Only one instance of AIM Flow can run at a time. If you see duplicates, quit all
 
 ### "ffmpeg not found" error
 
+**macOS**
 ```bash
 brew install ffmpeg
+```
+
+**Linux**
+```bash
+sudo apt-get install ffmpeg
 ```
 
 ### Microphone access denied
@@ -153,10 +219,14 @@ macOS ties permissions to the specific app binary. Every time you replace the `.
 
 ### Python version issues
 
-Use Python 3.12:
-
+**macOS** — Use Python 3.12:
 ```bash
 brew install python@3.12
+```
+
+**Linux** — Use Python 3.12:
+```bash
+sudo apt-get install python3.12 python3.12-venv python3.12-dev
 ```
 
 ---
@@ -164,28 +234,42 @@ brew install python@3.12
 ## Project layout
 
 ```
-aim-flow/
-├── launch_aim_flow.py       Convenience launcher
-├── install.sh               One-command setup
-├── run.sh                   Run from source
-├── requirements.txt         Runtime dependencies
-├── requirements-build.txt   PyInstaller (build only)
-├── AIM Flow.spec            PyInstaller spec (icon + Info.plist)
-├── status_logo.png          Menu bar icon source (18×18 PNG)
+aim-flow/                         macOS application
+├── launch_aim_flow.py            Convenience launcher
+├── install.sh                    One-command setup (Homebrew)
+├── run.sh                        Run from source
+├── requirements.txt              Runtime dependencies
+├── requirements-build.txt        PyInstaller (build only)
+├── AIM Flow.spec                 PyInstaller spec (icon + Info.plist)
+├── status_logo.png               Menu bar icon source (18×18 PNG)
 ├── assets/
-│   └── aim-flow.icns        Generated app bundle icon
+│   └── aim-flow.icns             Generated app bundle icon
 ├── scripts/
-│   ├── build_app.sh         Build AIM Flow.app
-│   └── create_icns.sh       Convert status_logo.png → .icns
+│   ├── build_app.sh              Build AIM Flow.app
+│   └── create_icns.sh            Convert status_logo.png → .icns
 └── src/aim_flow/
-    ├── app.py               Menu bar app
-    ├── audio.py             Microphone recording
-    ├── automation.py        Clipboard + paste
-    ├── config.py            Constants + resource path helper
-    ├── hotkey.py            Global hotkey listener
-    ├── permissions.py       Accessibility check + guidance dialog
-    ├── transcription.py     Whisper engine
-    └── visuals.py           Menu bar icon rendering
+    ├── app.py                    Menu bar app (macOS)
+    ├── audio.py                  Microphone recording
+    ├── automation.py             Clipboard + paste
+    ├── config.py                 Constants + resource path helper
+    ├── hotkey.py                 Global hotkey listener
+    ├── permissions.py            Accessibility check + guidance dialog
+    ├── transcription.py          Whisper engine
+    └── visuals.py                Menu bar icon rendering (macOS/AppKit)
+
+aim-flow-linux/                   Linux application (linux branch)
+├── launch_aim_flow_linux.py      Convenience launcher
+├── install_linux.sh              One-command setup (apt-get)
+├── run_linux.sh                  Run from source
+├── requirements_linux.txt        Runtime dependencies
+└── src/aim_flow/
+    ├── app_linux.py              System tray app (pystray)
+    ├── audio.py                  Microphone recording (shared)
+    ├── automation.py             Clipboard + paste (X11/Wayland)
+    ├── config.py                 Constants + resource path helper
+    ├── hotkey.py                 Global hotkey listener (shared)
+    ├── transcription.py          Whisper engine (shared)
+    └── visuals_linux.py          Tray icon rendering (Pillow)
 ```
 
 ---
