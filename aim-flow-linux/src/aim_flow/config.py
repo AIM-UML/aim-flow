@@ -27,7 +27,7 @@ def resource_path(name: str) -> Path:
     return candidate
 
 
-MODEL_SIZE = "base"
+MODEL_SIZE = "small"
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -36,7 +36,7 @@ CHUNK_SIZE = 1024
 DEFAULT_HOTKEY = "ctrl+shift+space"
 PYNPUT_HOTKEY = "<ctrl>+<shift>+<space>"
 
-TRANSCRIPTION_LANGUAGE = None
+TRANSCRIPTION_LANGUAGE = "en"
 
 STATUS_LOGO_NAME = "status_logo.png"
 

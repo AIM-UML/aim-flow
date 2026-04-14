@@ -33,6 +33,7 @@ class WhisperEngine:
                 str(temp_path),
                 fp16=False,
                 language=config.TRANSCRIPTION_LANGUAGE,
+                initial_prompt="Hey Claude, Hey Google, Hey Open, Hey X",
             )
             return result.get("text", "").strip()
         finally:
