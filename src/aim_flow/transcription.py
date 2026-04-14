@@ -23,7 +23,8 @@ def process_transcription(text: str) -> tuple[str, str | None]:
     text_lower = text.lower()
     for wake_word, service in _WAKE_WORDS.items():
         if text_lower.startswith(wake_word):
-            return (text[len(wake_word):].strip(), service)
+            remaining = text[len(wake_word):].lstrip(" ,")
+            return (remaining, service)
     return (text, None)
 
 import os
