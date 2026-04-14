@@ -73,3 +73,21 @@ class WhisperEngine:
             wav_file.writeframes(b"".join(frames))
 
         return path
+
+
+_WAKE_WORDS: dict[str, str] = {
+    "hey claude": "claude",
+    "hey open": "chatgpt",
+    "hey x": "grok",
+    "hey google": "gemini",
+}
+
+
+def process_transcription(text: str) -> tuple[str, str | None]:
+    text = text.strip()
+    text_lower = text.lower()
+    for wake_word, service in _WAKE_WORDS.items():
+        if text_lower.startswith(wake_word):
+            remaining = text[len(wake_word):].lstrip(" ,")
+            return (remaining, service)
+    return (text, None)

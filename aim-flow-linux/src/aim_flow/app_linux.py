@@ -30,9 +30,10 @@ import pystray
 
 from . import config
 from .audio import AudioRecorder
-from .automation import copy_and_paste
+from .automation import copy_and_paste, open_ai_service
 from .hotkey import HotkeyManager
 from .transcription import WhisperEngine
+from .transcription import process_transcription
 from .visuals_linux import StatusIconRenderer
 
 logger = logging.getLogger(__name__)
@@ -185,7 +186,12 @@ class AIMFlowLinuxApp:
             text = self.whisper.transcribe_frames(frames, sample_width)
             if text:
                 logger.info("Transcription: %s", text[:80])
-                copy_and_paste(text)
+                processed_text, service = process_transcription(text)
+                if service:
+                    logger.info("Wake word detected, opening %s", service)
+                    open_ai_service(service, processed_text)
+                else:
+                    copy_and_paste(processed_text)
                 self.last_transcript = text
                 self.status_text = "Ready"
             else:

@@ -161,3 +161,34 @@ def _paste_wayland() -> None:
 def _is_wayland() -> bool:
     """Return True when running under a Wayland compositor."""
     return bool(os.environ.get("WAYLAND_DISPLAY"))
+
+
+_SERVICE_URLS: dict[str, str] = {
+    "claude": "https://claude.ai/new",
+    "chatgpt": "https://chatgpt.com/",
+    "grok": "https://grok.com/",
+    "gemini": "https://gemini.google.com/",
+}
+
+
+def open_ai_service(service: str, query: str) -> None:
+    import threading
+    import webbrowser
+    from urllib.parse import quote
+
+    base_url = _SERVICE_URLS.get(service, "https://claude.ai/new")
+
+    if service == "claude" and query:
+        webbrowser.open(f"{base_url}?q={quote(query)}")
+    else:
+        webbrowser.open(base_url)
+        if query:
+            copy_to_clipboard(query)
+
+            def _delayed_paste() -> None:
+                time.sleep(3.5)
+                paste_active_field()
+
+            threading.Thread(target=_delayed_paste, daemon=True).start()
+
+    logger.debug("Opened %s with query (%d chars)", service, len(query))
