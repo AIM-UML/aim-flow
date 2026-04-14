@@ -10,6 +10,8 @@ import threading
 import wave
 
 import whisper
+import noisereduce as nr
+import numpy as py
 
 from . import config
 
@@ -26,8 +28,19 @@ class WhisperEngine:
         if not frames:
             return ""
 
+        import numpy as np
+        import noisereduce as nr
+
         model = self._load_model()
-        temp_path = self._write_temp_wav(frames, sample_width)
+
+        # Noise reduction
+        raw = b"".join(frames)
+        samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+        cleaned = nr.reduce_noise(y=samples, sr=config.SAMPLE_RATE, stationary=True, prop_decrease=0.75)
+        cleaned_int16 = (cleaned * 32768.0).clip(-32768, 32767).astype(np.int16)
+        cleaned_frames = [cleaned_int16.tobytes()]
+
+        temp_path = self._write_temp_wav(cleaned_frames, sample_width)
         try:
             result = model.transcribe(
                 str(temp_path),

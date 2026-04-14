@@ -9,3 +9,5 @@ PyAudio
 pynput
 pystray
 Pillow
+noisereduce
+noisereduce
