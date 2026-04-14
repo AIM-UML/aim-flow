@@ -1,0 +1,11 @@
+# AIM Flow — Linux runtime dependencies
+# Install with:  pip install -r requirements_linux.txt
+#
+# Deliberately excludes macOS-only packages (rumps, pyobjc-framework-Cocoa).
+
+openai-whisper
+numpy
+PyAudio
+pynput
+pystray
+Pillow
