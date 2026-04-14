@@ -2,6 +2,30 @@
 
 from __future__ import annotations
 
+# Maps wake word (lowercase) → service key
+_WAKE_WORDS: dict[str, str] = {
+    "hey claude": "claude",
+    "hey chat": "chatgpt",
+    "hey grok": "grok",
+    "hey google": "gemini",
+}
+
+
+def process_transcription(text: str) -> tuple[str, str | None]:
+    """Check if transcription starts with a known wake word.
+
+    Returns:
+        tuple: (processed_text, service_key)
+            - processed_text: text with wake word stripped (if present)
+            - service_key: one of 'claude', 'chatgpt', 'grok', 'gemini', or None
+    """
+    text = text.strip()
+    text_lower = text.lower()
+    for wake_word, service in _WAKE_WORDS.items():
+        if text_lower.startswith(wake_word):
+            return (text[len(wake_word):].strip(), service)
+    return (text, None)
+
 import os
 from pathlib import Path
 import shutil

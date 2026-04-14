@@ -34,3 +34,37 @@ def paste_active_field() -> None:
 def copy_and_paste(text: str) -> None:
     copy_to_clipboard(text)
     paste_active_field()
+
+
+_SERVICE_URLS: dict[str, str] = {
+    "claude": "https://claude.ai/new",
+    "chatgpt": "https://chatgpt.com/",
+    "grok": "https://grok.com/",
+    "gemini": "https://gemini.google.com/",
+}
+
+
+def open_ai_service(service: str, query: str) -> None:
+    """Open an AI service in the default browser.
+
+    The query is copied to the clipboard so the user can paste it if the
+    service does not support a URL query parameter.
+
+    Args:
+        service: One of 'claude', 'chatgpt', 'grok', 'gemini'.
+        query: The text to send. May be empty.
+    """
+    import webbrowser
+    from urllib.parse import quote
+
+    base_url = _SERVICE_URLS.get(service, "https://claude.ai/new")
+
+    if query:
+        copy_to_clipboard(query)
+
+    if service == "claude" and query:
+        webbrowser.open(f"{base_url}?q={quote(query)}")
+    else:
+        webbrowser.open(base_url)
+
+    logger.debug("Opened %s with query (%d chars)", service, len(query))
