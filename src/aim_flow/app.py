@@ -214,15 +214,15 @@ class AIMFlowApp(rumps.App):
         now = time.monotonic()
         weights = (0.72, 1.0, 0.86, 0.64)
         phases = (0.0, 0.9, 1.8, 2.7)
-        speeds = (3.6, 4.8, 4.2, 5.3)
+        speeds = (6.0, 8.5, 7.2, 9.8)
         smoothed: list[float] = []
 
         for index in range(config.WAVE_BAR_COUNT):
-            wobble = 0.08 * math.sin(now * speeds[index] + phases[index])
-            target = 0.12 + level * weights[index] + wobble * (0.35 + level)
-            target = max(0.08, min(1.0, target))
+            wobble = 0.22 * math.sin(now * speeds[index] + phases[index])
+            target = 0.12 + level * weights[index] + wobble * (0.7 + level)
+            target = max(0.05, min(1.0, target))
             current = self.wave_levels[index]
-            updated = current + (target - current) * 0.35
+            updated = current + (target - current) * 0.55
             smoothed.append(updated)
 
         self.wave_levels = smoothed
