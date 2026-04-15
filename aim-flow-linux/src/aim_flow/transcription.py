@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 import shutil
 import tempfile
 import threading
 import wave
 
-import whisper
+import numpy as np
 import noisereduce as nr
-import numpy as py
+import whisper
 
 from . import config
 
@@ -27,9 +28,6 @@ class WhisperEngine:
     def transcribe_frames(self, frames: list[bytes], sample_width: int) -> str:
         if not frames:
             return ""
-
-        import numpy as np
-        import noisereduce as nr
 
         model = self._load_model()
 
@@ -88,6 +86,22 @@ class WhisperEngine:
         return path
 
 
+# ---------------------------------------------------------------------------
+# Filler word removal
+# ---------------------------------------------------------------------------
+
+def remove_filler_words(text: str) -> str:
+    fillers = r'\b(um|uh|uhh|umm|hmm|hm|like|you know|I mean|sort of|kind of|basically|actually|literally|so yeah)\b'
+    text = re.sub(fillers, '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = re.sub(r'\s([.,!?])', r'\1', text)
+    return text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Wake word detection
+# ---------------------------------------------------------------------------
+
 _WAKE_WORDS: dict[str, str] = {
     "hey claude": "claude",
     "hey open": "chatgpt",
@@ -102,5 +116,5 @@ def process_transcription(text: str) -> tuple[str, str | None]:
     for wake_word, service in _WAKE_WORDS.items():
         if text_lower.startswith(wake_word):
             remaining = text[len(wake_word):].lstrip(" ,")
-            return (remaining, service)
-    return (text, None)
+            return (remove_filler_words(remaining), service)
+    return (remove_filler_words(text), None)
