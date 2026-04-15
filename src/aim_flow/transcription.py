@@ -66,6 +66,8 @@ class WhisperEngine:
     def _load_model(self):
         with self._lock:
             if self._model is None:
+                # "small" is a better default than "base" for dictation quality
+                # while still remaining practical on modern Macs.
                 self._model = whisper.load_model(config.MODEL_SIZE)
             return self._model
 

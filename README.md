@@ -1,6 +1,6 @@
 # AIM Flow
 
-Free, open-source, fully local speech-to-text for macOS and Linux — no cloud, no API keys, no subscription.
+Free, open-source, fully local speech-to-text for macOS — no cloud, no API keys, no subscription.
 
 AIM Flow lives in your menu bar. Press a hotkey, speak, and the transcribed text is automatically pasted into whatever field you were typing in.
 
@@ -11,9 +11,9 @@ Created by Jordi Lopez for the [Artificial Intelligence Multidisciplinary Societ
 ## How it works
 
 1. The AIMS "A" logo sits in your menu bar.
-2. Press `Ctrl+Shift+Space` to start recording — the logo shows a live waveform.
-3. Press `Ctrl+Shift+Space` again to stop.
-4. Whisper transcribes your audio locally on your machine.
+2. Press `Option` to start recording — the logo shows a live waveform.
+3. Press `Option` again to stop.
+4. Whisper transcribes your audio locally on your machine with the `small` model by default.
 5. The text is automatically pasted into the active field.
 
 ---
@@ -25,16 +25,7 @@ Created by Jordi Lopez for the [Artificial Intelligence Multidisciplinary Societ
 - Python 3.11 or 3.12 (3.12 recommended)
 - [Homebrew](https://brew.sh)
 
-### Linux (Ubuntu / Debian)
-- Ubuntu 20.04+ or any Debian-based distro
-- Python 3.11 or 3.12
-- A system tray (GNOME with AppIndicator extension, KDE, XFCE, etc.)
-
----
-
 ## Installation
-
-### macOS
 
 #### Step 1 — Clone and install
 
@@ -75,7 +66,7 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 | Permission | Where to find it | Why it's needed |
 |---|---|---|
 | **Accessibility** | Privacy & Security → Accessibility | Lets AIM Flow detect the global hotkey and paste text |
-| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Ctrl+Shift+Space` system-wide |
+| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Option` system-wide |
 | **Microphone** | Privacy & Security → Microphone | Lets AIM Flow record your voice (macOS will prompt automatically) |
 
 **After enabling both Accessibility and Input Monitoring, quit and relaunch AIM Flow.** macOS does not apply permission changes to a running process.
@@ -84,44 +75,17 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 
 ---
 
-### Linux
-
-#### Step 1 — Clone and switch to the Linux branch
-
-```bash
-git clone https://github.com/jangel19/aim-flow.git
-cd aim-flow
-git checkout linux
-cd aim-flow-linux
-```
-
-#### Step 2 — Install and run
-
-```bash
-bash install_linux.sh
-./run_linux.sh
-```
-
-`install_linux.sh` uses `apt-get` to install `ffmpeg`, `portaudio19-dev`, `libdbus-1-dev`, `xclip`, and `libnotify-bin`, then creates a Python virtual environment and installs all Python dependencies.
-
-The AIMS "A" logo will appear in your system tray.
-
-> **GNOME users:** The system tray is hidden by default. Install the [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/) extension to make it visible.
-
-> **Wayland users:** Clipboard and paste work via `wl-clipboard`. For keystroke injection without XWayland, install `ydotool` and ensure its daemon (`ydotoold`) is running.
-
----
-
 ## Usage
 
 | Action | How |
 |---|---|
-| Start recording | `Ctrl+Shift+Space` |
-| Stop recording and paste | `Ctrl+Shift+Space` again |
+| Start recording | `Option` |
+| Stop recording and paste | `Option` again |
 | Toggle via menu | Click the A logo → Toggle Recording |
 | Quit | Click the A logo → Quit |
 
-The Whisper model (`base`) is downloaded automatically on first use (~140 MB). Subsequent runs load it from cache.
+The Whisper model (`small`) is downloaded automatically on first use (~460 MB). Subsequent runs load it from cache.
+Set `AIM_FLOW_MODEL=base`, `small`, `medium`, `large`, or `turbo` before launch if you want a different tradeoff.
 
 ### AI Assistant Integration
 
@@ -146,31 +110,11 @@ Your question is copied to the clipboard automatically — just paste if the ser
 ```
 Grant Accessibility and Input Monitoring to **Terminal** (or whichever terminal app you use) instead of AIM Flow.
 
-**Linux**
-```bash
-cd aim-flow-linux
-./run_linux.sh
-```
-
 ---
 
 ## Auto-start on login
 
 **macOS** — **System Settings → General → Login Items → +** and add `/Applications/AIM Flow.app`.
-
-**Linux** — Create a `.desktop` entry in `~/.config/autostart/`:
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=AIM Flow
-Exec=/path/to/aim-flow-linux/run_linux.sh
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-```
-
----
 
 ## Tech stack
 
@@ -182,12 +126,6 @@ X-GNOME-Autostart-enabled=true
 - [rumps](https://github.com/jaredks/rumps) — menu bar framework
 - [pyobjc](https://pyobjc.readthedocs.io) — AppKit image rendering
 - [PyInstaller](https://pyinstaller.org) — .app bundle packaging
-
-**Linux only**
-- [pystray](https://github.com/moses-palmer/pystray) — system tray icon
-- [Pillow](https://python-pillow.org) — tray icon rendering
-
----
 
 ## Troubleshooting
 
@@ -224,7 +162,7 @@ sudo apt-get install ffmpeg
 
 ### Whisper model download is slow
 
-The first run downloads the `base` Whisper model (~140 MB). This only happens once. Subsequent launches are instant.
+The first run downloads the `small` Whisper model (~460 MB). This only happens once. Subsequent launches are instant.
 
 ### Permissions were granted but still not working after reinstall
 
@@ -236,13 +174,6 @@ macOS ties permissions to the specific app binary. Every time you replace the `.
 ```bash
 brew install python@3.12
 ```
-
-**Linux** — Use Python 3.12:
-```bash
-sudo apt-get install python3.12 python3.12-venv python3.12-dev
-```
-
----
 
 ## Project layout
 
@@ -280,7 +211,7 @@ aim-flow-linux/                   Linux application (linux branch)
     ├── audio.py                  Microphone recording (shared)
     ├── automation.py             Clipboard + paste (X11/Wayland)
     ├── config.py                 Constants + resource path helper
-    ├── hotkey.py                 Global hotkey listener (shared)
+    ├── hotkey.py                 Global hotkey listener
     ├── transcription.py          Whisper engine (shared)
     └── visuals_linux.py          Tray icon rendering (Pillow)
 ```
@@ -290,4 +221,3 @@ aim-flow-linux/                   Linux application (linux branch)
 ## License
 
 MIT — see [LICENSE](LICENSE).
-

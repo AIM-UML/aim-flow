@@ -30,7 +30,7 @@ class AIMFlowApp(rumps.App):
 
         self.recorder = AudioRecorder()
         self.whisper = WhisperEngine()
-        self.hotkey = HotkeyManager(self.toggle_recording)
+        self.hotkey = HotkeyManager(self.request_toggle)
         self.renderer = StatusIconRenderer()
 
         self.state = "idle"
@@ -39,6 +39,7 @@ class AIMFlowApp(rumps.App):
         self.processing_counter = 0
         self.wave_levels = [0.15] * config.WAVE_BAR_COUNT
         self._state_lock = threading.Lock()
+        self._toggle_requested = threading.Event()
 
         self.toggle_item = rumps.MenuItem(
             f"Toggle Recording ({config.DEFAULT_HOTKEY})", self._menu_toggle
@@ -70,6 +71,9 @@ class AIMFlowApp(rumps.App):
 
     def _menu_toggle(self, _sender) -> None:
         self.toggle_recording()
+
+    def request_toggle(self) -> None:
+        self._toggle_requested.set()
 
     def _open_accessibility_settings(self, _sender) -> None:
         from .permissions import open_accessibility_settings
@@ -163,6 +167,10 @@ class AIMFlowApp(rumps.App):
     # ------------------------------------------------------------------
 
     def _update_ui(self, _sender) -> None:
+        if self._toggle_requested.is_set():
+            self._toggle_requested.clear()
+            self.toggle_recording()
+
         with self._state_lock:
             state = self.state
 

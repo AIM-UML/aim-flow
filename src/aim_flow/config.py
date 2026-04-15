@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import platform
 
 APP_NAME = "AIM Flow"
 
@@ -23,13 +24,15 @@ def resource_path(name: str) -> Path:
     except Exception:
         pass
     return PROJECT_ROOT / name
-MODEL_SIZE = "base"
+
+IS_MACOS = platform.system() == "Darwin"
+MODEL_SIZE = os.environ.get("AIM_FLOW_MODEL", "small")
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_SIZE = 1024
 
-DEFAULT_HOTKEY = "ctrl+shift+space"
+DEFAULT_HOTKEY = "Option" if IS_MACOS else "Ctrl+Shift+Space"
 PYNPUT_HOTKEY = "<ctrl>+<shift>+<space>"
 
 TRANSCRIPTION_LANGUAGE = None

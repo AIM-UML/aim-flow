@@ -18,6 +18,8 @@ import subprocess
 
 import rumps
 
+from . import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +81,7 @@ def check_and_prompt() -> None:
         title="Accessibility Permission Required",
         message=(
             "AIM Flow needs Accessibility access to:\n\n"
-            "  - Detect the global hotkey (Ctrl+Shift+Space)\n"
+            f"  - Detect the global hotkey ({config.DEFAULT_HOTKEY})\n"
             "  - Paste transcribed text into the active field\n\n"
             "To grant access:\n"
             "  System Settings > Privacy & Security > Accessibility\n\n"
