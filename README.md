@@ -11,8 +11,8 @@ Created by Jordi Lopez for the [Artificial Intelligence Multidisciplinary Societ
 ## How it works
 
 1. The AIMS "A" logo sits in your menu bar.
-2. Press `Option` to start recording — the logo shows a live waveform.
-3. Press `Option` again to stop.
+2. Press `Option+Space` to start recording — the logo shows a live waveform.
+3. Press `Option+Space` again to stop.
 4. Whisper transcribes your audio locally on your machine with the `small` model by default.
 5. The text is automatically pasted into the active field.
 
@@ -66,7 +66,7 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 | Permission | Where to find it | Why it's needed |
 |---|---|---|
 | **Accessibility** | Privacy & Security → Accessibility | Lets AIM Flow detect the global hotkey and paste text |
-| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Option` system-wide |
+| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Option+Space` system-wide |
 | **Microphone** | Privacy & Security → Microphone | Lets AIM Flow record your voice (macOS will prompt automatically) |
 
 **After enabling both Accessibility and Input Monitoring, quit and relaunch AIM Flow.** macOS does not apply permission changes to a running process.
@@ -79,8 +79,8 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 
 | Action | How |
 |---|---|
-| Start recording | `Option` |
-| Stop recording and paste | `Option` again |
+| Start recording | `Option+Space` |
+| Stop recording and paste | `Option+Space` again |
 | Toggle via menu | Click the A logo → Toggle Recording |
 | Quit | Click the A logo → Quit |
 

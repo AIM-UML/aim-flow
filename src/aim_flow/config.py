@@ -32,8 +32,8 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_SIZE = 1024
 
-DEFAULT_HOTKEY = "Option" if IS_MACOS else "Ctrl+Shift+Space"
-PYNPUT_HOTKEY = "<ctrl>+<shift>+<space>"
+DEFAULT_HOTKEY = "Option+Space" if IS_MACOS else "Ctrl+Shift+Space"
+PYNPUT_HOTKEY = "<alt>+<space>" if IS_MACOS else "<ctrl>+<shift>+<space>"
 
 TRANSCRIPTION_LANGUAGE = None
 
