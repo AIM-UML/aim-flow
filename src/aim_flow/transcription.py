@@ -34,6 +34,7 @@ import tempfile
 import threading
 import wave
 
+import numpy as np
 import whisper
 
 from . import config
@@ -63,11 +64,21 @@ class WhisperEngine:
         finally:
             temp_path.unlink(missing_ok=True)
 
+    def transcribe_file(self, audio_path: str) -> str:
+        """Transcribe an existing audio file path."""
+        model = self._load_model()
+        result = model.transcribe(
+            audio_path,
+            fp16=False,
+            language=config.TRANSCRIPTION_LANGUAGE,
+        )
+        return result.get("text", "").strip()
+
     def _load_model(self):
         with self._lock:
             if self._model is None:
-                # "small" is a better default than "base" for dictation quality
-                # while still remaining practical on modern Macs.
+                # "base" keeps first-run latency and download size lower, which
+                # makes dictation feel more reliable out of the box on macOS.
                 self._model = whisper.load_model(config.MODEL_SIZE)
             return self._model
 
@@ -89,6 +100,10 @@ class WhisperEngine:
         return shutil.which("ffmpeg") is not None
 
     def _write_temp_wav(self, frames: list[bytes], sample_width: int) -> Path:
+        audio_bytes = b"".join(frames)
+        if config.VOICE_ISOLATION_ENABLED:
+            audio_bytes = self._preprocess_audio(audio_bytes, sample_width)
+
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
             path = Path(handle.name)
 
@@ -96,6 +111,60 @@ class WhisperEngine:
             wav_file.setnchannels(config.CHANNELS)
             wav_file.setsampwidth(sample_width)
             wav_file.setframerate(config.SAMPLE_RATE)
-            wav_file.writeframes(b"".join(frames))
+            wav_file.writeframes(audio_bytes)
 
         return path
+
+    def _preprocess_audio(self, audio_bytes: bytes, sample_width: int) -> bytes:
+        if sample_width != 2 or not audio_bytes:
+            return audio_bytes
+
+        samples = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        if samples.size == 0:
+            return audio_bytes
+
+        # Remove low-frequency rumble and steady-state background with a simple
+        # pre-emphasis stage that favors the vocal range for Whisper.
+        emphasized = np.empty_like(samples)
+        emphasized[0] = samples[0]
+        emphasized[1:] = samples[1:] - 0.97 * samples[:-1]
+
+        window = max(1, int(config.SAMPLE_RATE * 0.03))
+        envelope = self._window_rms(emphasized, window)
+        noise_floor = max(
+            config.VOICE_GATE_FLOOR,
+            float(np.percentile(envelope, 20)) if envelope.size else config.VOICE_GATE_FLOOR,
+        )
+        gate_threshold = noise_floor * config.VOICE_GATE_RATIO
+
+        cleaned = emphasized.copy()
+        attenuated = envelope < gate_threshold
+        cleaned[attenuated] *= 0.18
+
+        trimmed = self._trim_to_voice_region(cleaned, envelope, gate_threshold)
+        peak = float(np.max(np.abs(trimmed))) if trimmed.size else 0.0
+        if peak > 1e-4:
+            trimmed *= min(config.VOICE_TARGET_PEAK / peak, 6.0)
+
+        trimmed = np.clip(trimmed, -1.0, 1.0)
+        return (trimmed * 32767.0).astype(np.int16).tobytes()
+
+    def _window_rms(self, samples: np.ndarray, window: int) -> np.ndarray:
+        squared = np.square(samples, dtype=np.float32)
+        kernel = np.ones(window, dtype=np.float32) / float(window)
+        return np.sqrt(np.convolve(squared, kernel, mode="same"))
+
+    def _trim_to_voice_region(
+        self,
+        samples: np.ndarray,
+        envelope: np.ndarray,
+        gate_threshold: float,
+    ) -> np.ndarray:
+        active = np.flatnonzero(envelope >= max(gate_threshold, config.SILENCE_TRIM_THRESHOLD))
+        if active.size == 0:
+            return samples
+
+        margin = int(config.SAMPLE_RATE * (config.SILENCE_TRIM_MARGIN_MS / 1000.0))
+        start = max(0, int(active[0]) - margin)
+        end = min(samples.size, int(active[-1]) + margin)
+        return samples[start:end]

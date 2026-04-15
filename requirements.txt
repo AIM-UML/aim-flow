@@ -4,3 +4,6 @@ PyAudio
 rumps
 pynput
 pyobjc-framework-Cocoa
+requests>=2.31.0
+reportlab>=4.2.5
+reportlab>=4.2.5

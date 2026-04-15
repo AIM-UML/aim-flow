@@ -11,10 +11,12 @@ Created by Jordi Lopez for the [Artificial Intelligence Multidisciplinary Societ
 ## How it works
 
 1. The AIMS "A" logo sits in your menu bar.
-2. Press `Option+Space` to start recording — the logo shows a live waveform.
-3. Press `Option+Space` again to stop.
-4. Whisper transcribes your audio locally on your machine with the `small` model by default.
+2. Press `Option+Command` to start recording — the logo shows a live waveform.
+3. Press `Option+Command` again to stop.
+4. Whisper transcribes your audio locally on your machine with the `base` model by default.
 5. The text is automatically pasted into the active field.
+
+The app applies lightweight voice-focused cleanup before transcription to reduce steady background noise and trailing silence. For best results on macOS, also enable the system microphone's Voice Isolation mode when available.
 
 ---
 
@@ -66,7 +68,7 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 | Permission | Where to find it | Why it's needed |
 |---|---|---|
 | **Accessibility** | Privacy & Security → Accessibility | Lets AIM Flow detect the global hotkey and paste text |
-| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Option+Space` system-wide |
+| **Input Monitoring** | Privacy & Security → Input Monitoring | Lets AIM Flow listen for `Option+Command` system-wide |
 | **Microphone** | Privacy & Security → Microphone | Lets AIM Flow record your voice (macOS will prompt automatically) |
 
 **After enabling both Accessibility and Input Monitoring, quit and relaunch AIM Flow.** macOS does not apply permission changes to a running process.
@@ -79,12 +81,12 @@ Open **System Settings → Privacy & Security** and enable the following for **A
 
 | Action | How |
 |---|---|
-| Start recording | `Option+Space` |
-| Stop recording and paste | `Option+Space` again |
+| Start recording | `Option+Command` |
+| Stop recording and paste | `Option+Command` again |
 | Toggle via menu | Click the A logo → Toggle Recording |
 | Quit | Click the A logo → Quit |
 
-The Whisper model (`small`) is downloaded automatically on first use (~460 MB). Subsequent runs load it from cache.
+The Whisper model (`base`) is downloaded automatically on first use (~140 MB). Subsequent runs load it from cache.
 Set `AIM_FLOW_MODEL=base`, `small`, `medium`, `large`, or `turbo` before launch if you want a different tradeoff.
 
 ### AI Assistant Integration
@@ -99,6 +101,34 @@ Start your recording with a wake word and AIM Flow will open the corresponding A
 | `Hey Google, [your question]` | Gemini |
 
 Your question is copied to the clipboard automatically — just paste if the service doesn't pre-fill it. Without a wake word, text pastes normally.
+
+## Meeting Summarizer (macOS Only)
+
+AIM Flow can record long-form meetings and generate structured summaries using local AI.
+
+### Requirements
+1. Install [Ollama](https://ollama.com/download)
+2. Pull Llama 3.2 model:
+    ```bash
+    ollama pull llama3.2:3b
+    ```
+
+### Usage
+1. Click **Start Meeting Recording** in the menu bar
+2. Meeting audio is recorded continuously
+3. Click **Stop Meeting Recording** when done
+4. AIM Flow transcribes with Whisper and summarizes with Llama 3.2
+5. The summary opens automatically in Markdown format
+
+### Output
+Summaries are saved to `~/Documents/AIM_Flow_Meetings/` with:
+- Key decisions
+- Discussion topics
+- Action items
+- Next steps
+- Full transcript
+
+**Note**: If Ollama is not running, AIM Flow saves a transcript-only Markdown file as a fallback.
 
 ---
 
@@ -162,7 +192,7 @@ sudo apt-get install ffmpeg
 
 ### Whisper model download is slow
 
-The first run downloads the `small` Whisper model (~460 MB). This only happens once. Subsequent launches are instant.
+The first run downloads the `base` Whisper model (~140 MB). This only happens once. Subsequent launches are instant.
 
 ### Permissions were granted but still not working after reinstall
 

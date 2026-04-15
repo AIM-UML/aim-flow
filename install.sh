@@ -52,7 +52,7 @@ AIM Flow is installed.
 Next steps:
 1. Run ./run.sh
 2. When prompted, grant Accessibility and Microphone permissions
-3. Press Option+Space to start and stop dictation
+3. Press Option+Command to start and stop dictation
 
 To build a standalone .app bundle:
   ./scripts/build_app.sh

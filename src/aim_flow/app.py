@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import logging
 import math
+import os
+import subprocess
 import threading
 import time
 
 import rumps
 
 from . import config
-from .audio import AudioRecorder
+from .audio import AudioRecorder, get_device_name, list_input_devices
 from .automation import copy_and_paste, open_ai_service
-from .transcription import process_transcription
 from .hotkey import HotkeyManager
+from .meeting import MeetingRecorder
+from .meeting_history import open_history_viewer
+from .zoom_import import parse_srt_transcript, parse_vtt_transcript
+from .transcription import process_transcription
 from .transcription import WhisperEngine
 from .visuals import StatusIconRenderer
 
@@ -32,10 +37,14 @@ class AIMFlowApp(rumps.App):
         self.whisper = WhisperEngine()
         self.hotkey = HotkeyManager(self.request_toggle)
         self.renderer = StatusIconRenderer()
+        self.meeting_recorder = MeetingRecorder()
+        self.selected_mic_index = config.load_mic_preference()
 
         self.state = "idle"
         self.last_transcript = "No transcript yet."
         self.status_text = "Ready"
+        self.meeting_in_progress = False
+        self.meeting_processing = False
         self.processing_counter = 0
         self.wave_levels = [0.15] * config.WAVE_BAR_COUNT
         self._state_lock = threading.Lock()
@@ -44,6 +53,11 @@ class AIMFlowApp(rumps.App):
         self.toggle_item = rumps.MenuItem(
             f"Toggle Recording ({config.DEFAULT_HOTKEY})", self._menu_toggle
         )
+        self.meeting_item = rumps.MenuItem("Start Meeting Recording", self._toggle_meeting)
+        self.mic_item = rumps.MenuItem("Select Microphone...", self._select_microphone)
+        self.import_audio_item = rumps.MenuItem("Import Audio File...", self._import_audio)
+        self.import_transcript_item = rumps.MenuItem("Import Transcript...", self._import_transcript)
+        self.history_item = rumps.MenuItem("Meeting History", self._show_history)
         self.last_text_item = rumps.MenuItem("Last Transcript: No transcript yet.")
         self.permissions_item = rumps.MenuItem(
             "Check Permissions", self._open_accessibility_settings
@@ -52,6 +66,12 @@ class AIMFlowApp(rumps.App):
         self.menu = [
             self.toggle_item,
             self.last_text_item,
+            None,  # separator
+            self.meeting_item,
+            self.mic_item,
+            self.import_audio_item,
+            self.import_transcript_item,
+            self.history_item,
             None,  # separator
             self.permissions_item,
             self.quit_item,
@@ -79,11 +99,118 @@ class AIMFlowApp(rumps.App):
         from .permissions import open_accessibility_settings
         open_accessibility_settings()
 
+    def _select_microphone(self, _sender) -> None:
+        devices = list_input_devices()
+        choices = ["Use System Default"] + [device["name"] for device in devices]
+        choice_list = "\", \"".join(choices)
+        script = f'''
+        set choiceItems to {{"{choice_list}"}}
+        set selectedItem to choose from list choiceItems with prompt "Select a recording microphone:" with title "AIM Flow"
+        if selectedItem is false then
+            return "CANCELLED"
+        else
+            return item 1 of selectedItem
+        end if
+        '''
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if result.returncode != 0:
+            return
+
+        selected = result.stdout.strip()
+        if not selected or selected == "CANCELLED":
+            return
+
+        if selected == "Use System Default":
+            self.selected_mic_index = None
+            config.save_mic_preference(None)
+            rumps.notification(config.APP_NAME, "Microphone changed", "Using system default microphone")
+            return
+
+        for device in devices:
+            if device["name"] == selected:
+                self.selected_mic_index = device["index"]
+                config.save_mic_preference(device["index"])
+                rumps.notification(
+                    config.APP_NAME,
+                    "Microphone changed",
+                    f"Now using: {get_device_name(device['index'])}",
+                )
+                return
+
+    def _show_history(self, _sender) -> None:
+        open_history_viewer()
+
+    def _import_audio(self, _sender) -> None:
+        script = 'POSIX path of (choose file of type {"public.audio"} with prompt "Select audio file")'
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if result.returncode != 0:
+            return
+
+        audio_path = result.stdout.strip()
+        if not audio_path:
+            return
+
+        self.title = "⏳ Processing Import..."
+
+        def process() -> None:
+            summary_path = self.meeting_recorder.process_audio_file(audio_path)
+            if summary_path:
+                rumps.notification(config.APP_NAME, "Import complete", f"Saved {os.path.basename(summary_path)}")
+                subprocess.run(["open", summary_path], check=False)
+            else:
+                rumps.notification(config.APP_NAME, "Import failed", "Could not process audio file")
+            self.title = "AIM Flow"
+
+        threading.Thread(target=process, daemon=True).start()
+
+    def _import_transcript(self, _sender) -> None:
+        script = 'POSIX path of (choose file of type {"public.text", "vtt", "srt"} with prompt "Select transcript file")'
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        if result.returncode != 0:
+            return
+
+        transcript_path = result.stdout.strip()
+        if not transcript_path:
+            return
+
+        if transcript_path.lower().endswith(".vtt"):
+            transcript = parse_vtt_transcript(transcript_path)
+        elif transcript_path.lower().endswith(".srt"):
+            transcript = parse_srt_transcript(transcript_path)
+        else:
+            with open(transcript_path, "r", encoding="utf-8") as handle:
+                transcript = handle.read().strip()
+
+        if not transcript:
+            rumps.alert("Import Failed", "Could not parse transcript file")
+            return
+
+        self.title = "⏳ Generating Summary..."
+
+        def process() -> None:
+            summary_path = self.meeting_recorder.process_transcript_text(transcript)
+            if summary_path:
+                rumps.notification(config.APP_NAME, "Summary ready", f"Saved {os.path.basename(summary_path)}")
+                subprocess.run(["open", summary_path], check=False)
+            else:
+                rumps.notification(config.APP_NAME, "Summary failed", "Could not generate summary")
+            self.title = "AIM Flow"
+
+        threading.Thread(target=process, daemon=True).start()
+
     # ------------------------------------------------------------------
     # Recording control
     # ------------------------------------------------------------------
 
     def toggle_recording(self) -> None:
+        if self.meeting_in_progress or self.meeting_processing:
+            rumps.notification(
+                config.APP_NAME,
+                "Meeting recording in progress",
+                "Stop meeting recording before using dictation.",
+            )
+            return
+
         with self._state_lock:
             if self.state == "processing":
                 return
@@ -161,6 +288,102 @@ class AIMFlowApp(rumps.App):
             rumps.notification(config.APP_NAME, "Transcription error", str(exc))
         finally:
             self._set_state("idle")
+
+    # ------------------------------------------------------------------
+    # Meeting recorder control
+    # ------------------------------------------------------------------
+
+    def _toggle_meeting(self, _sender) -> None:
+        with self._state_lock:
+            dictation_busy = self.state in {"recording", "processing"}
+
+        if dictation_busy:
+            rumps.notification(
+                config.APP_NAME,
+                "Dictation active",
+                "Stop dictation before starting meeting recording.",
+            )
+            return
+
+        if self.meeting_processing:
+            return
+
+        if not self.meeting_in_progress:
+            self._start_meeting_recording()
+        else:
+            self._stop_meeting_recording()
+
+    def _start_meeting_recording(self) -> None:
+        response = rumps.alert(
+            title="Recording Meeting",
+            message=(
+                "For best transcription quality:\n\n"
+                "• Place Mac within 6 feet of speaker\n"
+                "• Or use an external microphone\n"
+                "• Avoid noisy environments\n\n"
+                "Continue recording?"
+            ),
+            ok="Start Recording",
+            cancel="Cancel",
+        )
+        if response != 1:
+            return
+
+        if not self.meeting_recorder.start_recording(
+            device_index=self.selected_mic_index,
+            capture_note="Recorded from distance - accuracy may be lower.",
+        ):
+            rumps.alert("Recording failed", "Could not start meeting recording.")
+            return
+
+        self.meeting_in_progress = True
+        self.meeting_item.title = "Stop Meeting Recording"
+        rumps.notification(
+            config.APP_NAME,
+            "Meeting recording started",
+            "Use Stop Meeting Recording when done.",
+        )
+
+    def _stop_meeting_recording(self) -> None:
+        self.meeting_processing = True
+        self.meeting_item.title = "Processing meeting..."
+        recording = self.meeting_recorder.stop_recording()
+
+        if recording is None:
+            self.meeting_in_progress = False
+            self.meeting_processing = False
+            self.meeting_item.title = "Start Meeting Recording"
+            rumps.alert("Recording failed", "Could not capture meeting audio.")
+            return
+
+        worker = threading.Thread(
+            target=self._process_meeting_background,
+            args=(recording,),
+            daemon=True,
+        )
+        worker.start()
+
+    def _process_meeting_background(self, recording) -> None:
+        summary_path = self.meeting_recorder.process_meeting(recording)
+        warning = self.meeting_recorder.last_warning
+        if summary_path:
+            subtitle = "Meeting output ready"
+            message = f"Saved {os.path.basename(summary_path)}"
+            if warning:
+                subtitle = "Meeting output saved with warning"
+                message = warning
+            rumps.notification(config.APP_NAME, subtitle, message)
+            subprocess.run(["open", summary_path], check=False)
+        else:
+            rumps.notification(
+                config.APP_NAME,
+                "Meeting processing failed",
+                "No summary file was generated.",
+            )
+
+        self.meeting_in_progress = False
+        self.meeting_processing = False
+        self.meeting_item.title = "Start Meeting Recording"
 
     # ------------------------------------------------------------------
     # UI update timer

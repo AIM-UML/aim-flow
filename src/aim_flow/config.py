@@ -26,14 +26,21 @@ def resource_path(name: str) -> Path:
     return PROJECT_ROOT / name
 
 IS_MACOS = platform.system() == "Darwin"
-MODEL_SIZE = os.environ.get("AIM_FLOW_MODEL", "small")
+MODEL_SIZE = os.environ.get("AIM_FLOW_MODEL", "base")
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_SIZE = 1024
 
-DEFAULT_HOTKEY = "Option+Space" if IS_MACOS else "Ctrl+Shift+Space"
-PYNPUT_HOTKEY = "<alt>+<space>" if IS_MACOS else "<ctrl>+<shift>+<space>"
+VOICE_ISOLATION_ENABLED = True
+VOICE_GATE_FLOOR = 0.015
+VOICE_GATE_RATIO = 1.8
+VOICE_TARGET_PEAK = 0.92
+SILENCE_TRIM_THRESHOLD = 0.012
+SILENCE_TRIM_MARGIN_MS = 180
+
+DEFAULT_HOTKEY = "Option+Command" if IS_MACOS else "Ctrl+Shift+Space"
+PYNPUT_HOTKEY = "<ctrl>+<shift>+<space>"
 
 TRANSCRIPTION_LANGUAGE = None
 
@@ -62,3 +69,33 @@ SYSTEM_PATH_FALLBACK = ":".join(
         )
     ]
 )
+
+# Meeting recorder settings
+MEETING_OUTPUT_DIR = os.path.expanduser("~/Documents/AIM_Flow_Meetings")
+MEETING_HOTKEY = "<cmd>+<alt>+m"
+OLLAMA_INSTALL_URL = "https://ollama.com/download"
+
+# Audio input settings
+SELECTED_MIC_INDEX: int | None = None
+MIC_PREFERENCE_FILE = os.path.expanduser("~/.aim_flow_mic_preference")
+
+
+def load_mic_preference() -> int | None:
+    """Load the user's saved microphone preference."""
+    if not os.path.exists(MIC_PREFERENCE_FILE):
+        return None
+
+    try:
+        with open(MIC_PREFERENCE_FILE, "r", encoding="utf-8") as handle:
+            value = handle.read().strip()
+        if not value:
+            return None
+        return int(value)
+    except Exception:
+        return None
+
+
+def save_mic_preference(device_index: int | None) -> None:
+    """Persist the selected microphone index."""
+    with open(MIC_PREFERENCE_FILE, "w", encoding="utf-8") as handle:
+        handle.write(str(device_index) if device_index is not None else "")
