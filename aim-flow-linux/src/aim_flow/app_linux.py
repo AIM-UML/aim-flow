@@ -133,14 +133,14 @@ class AIMFlowLinuxApp:
                 target=self._finish_meeting, name="aim-flow-meeting-finish", daemon=True
             ).start()
         else:
-            self._notify("Meeting recording started")
+            self._notify(config.APP_NAME, "Meeting", "Recording started")
             self.meeting_recorder.start_recording()
 
     def _finish_meeting(self) -> None:
-        self._notify("Meeting stopped. Transcribing and summarizing...")
+        self._notify(config.APP_NAME, "Meeting", "Stopped. Transcribing and summarizing...")
         recording = self.meeting_recorder.stop_recording()
         if recording is None:
-            self._notify("Meeting recording failed.")
+            self._notify(config.APP_NAME, "Meeting", "Recording failed.")
             return
         output_path = self.meeting_recorder.process_meeting(recording)
         warning = self.meeting_recorder.last_warning
@@ -148,20 +148,15 @@ class AIMFlowLinuxApp:
             msg = f"Meeting saved: {output_path}"
             if warning:
                 msg = f"{warning} Saved to {output_path}"
-            self._notify(msg)
+            self._notify(config.APP_NAME, "Meeting", msg)
             try:
                 subprocess.Popen(["xdg-open", output_path])
             except Exception as exc:
                 logger.warning("Could not open meeting output: %s", exc)
         else:
-            self._notify("Meeting processing failed; see logs.")
+            self._notify(config.APP_NAME, "Meeting", "Processing failed; see logs.")
 
-    def _notify(self, message: str) -> None:
-        logger.info(message)
-        try:
-            subprocess.Popen(["notify-send", "AIM Flow", message])
-        except Exception:
-            pass
+
 
     def _quit_app(self, _icon=None, _item=None) -> None:
         logger.info("Quitting AIM Flow")
