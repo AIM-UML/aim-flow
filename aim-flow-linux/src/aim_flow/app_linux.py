@@ -34,6 +34,7 @@ from .automation import copy_and_paste, open_ai_service
 from .hotkey import HotkeyManager
 from .transcription import WhisperEngine
 from .transcription import process_transcription
+from .meeting import MeetingRecorder
 from .visuals_linux import StatusIconRenderer
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ class AIMFlowLinuxApp:
         self.whisper = WhisperEngine()
         self.hotkey = HotkeyManager(self.toggle_recording)
         self.renderer = StatusIconRenderer()
+        self.meeting_recorder = MeetingRecorder()
 
         # Application state.
         self.state = "idle"
@@ -98,6 +100,8 @@ class AIMFlowLinuxApp:
             pystray.MenuItem(self._toggle_label, self._menu_toggle),
             pystray.MenuItem(self._transcript_label, None, enabled=False),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(self._meeting_label, self._menu_meeting_toggle),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._quit_app),
         )
 
@@ -117,6 +121,47 @@ class AIMFlowLinuxApp:
 
     def _menu_toggle(self, _icon=None, _item=None) -> None:
         self.toggle_recording()
+
+    def _meeting_label(self, _item=None) -> str:
+        if self.meeting_recorder.is_recording:
+            return "Stop Meeting Recording"
+        return "Start Meeting Recording"
+
+    def _menu_meeting_toggle(self, _icon=None, _item=None) -> None:
+        if self.meeting_recorder.is_recording:
+            threading.Thread(
+                target=self._finish_meeting, name="aim-flow-meeting-finish", daemon=True
+            ).start()
+        else:
+            self._notify("Meeting recording started")
+            self.meeting_recorder.start_recording()
+
+    def _finish_meeting(self) -> None:
+        self._notify("Meeting stopped. Transcribing and summarizing...")
+        recording = self.meeting_recorder.stop_recording()
+        if recording is None:
+            self._notify("Meeting recording failed.")
+            return
+        output_path = self.meeting_recorder.process_meeting(recording)
+        warning = self.meeting_recorder.last_warning
+        if output_path:
+            msg = f"Meeting saved: {output_path}"
+            if warning:
+                msg = f"{warning} Saved to {output_path}"
+            self._notify(msg)
+            try:
+                subprocess.Popen(["xdg-open", output_path])
+            except Exception as exc:
+                logger.warning("Could not open meeting output: %s", exc)
+        else:
+            self._notify("Meeting processing failed; see logs.")
+
+    def _notify(self, message: str) -> None:
+        logger.info(message)
+        try:
+            subprocess.Popen(["notify-send", "AIM Flow", message])
+        except Exception:
+            pass
 
     def _quit_app(self, _icon=None, _item=None) -> None:
         logger.info("Quitting AIM Flow")
@@ -228,15 +273,26 @@ class AIMFlowLinuxApp:
             state = self.state
 
         if state == "recording":
-            levels = self._animated_wave_levels(self.recorder.level)
-            self._icon.icon = self.renderer.recording_image(levels)
+            # Static icon on Linux — AppIndicator can't repaint smoothly
+            # enough for the macOS-style live waveform.
+            if getattr(self, "_last_drawn_state", None) != "recording":
+                levels = [0.6] * config.WAVE_BAR_COUNT
+                self._icon.icon = self.renderer.recording_image(levels)
+                self._last_drawn_state = "recording"
+            return
         elif state == "processing":
-            phase = self.processing_counter * 0.7
-            self.processing_counter += 1
-            self._icon.icon = self.renderer.processing_image(phase)
+            # Same reasoning — show a single processing frame, no spinner.
+            if getattr(self, "_last_drawn_state", None) != "processing":
+                self._icon.icon = self.renderer.processing_image(0.0)
+                self._last_drawn_state = "processing"
+            return
         else:
-            self.wave_levels = [0.15] * config.WAVE_BAR_COUNT
-            self._icon.icon = self.renderer.idle_image()
+            # Idle: only redraw on state transition to avoid AppIndicator flicker.
+            if getattr(self, "_last_drawn_state", None) != "idle":
+                self.wave_levels = [0.15] * config.WAVE_BAR_COUNT
+                self._icon.icon = self.renderer.idle_image()
+                self._last_drawn_state = "idle"
+            return  # nothing to refresh while idle
 
         # Refresh menu text (pystray re-evaluates callables on open,
         # but calling update_menu() keeps the tooltip/title current).

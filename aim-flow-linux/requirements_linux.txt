@@ -11,3 +11,4 @@ pystray
 Pillow
 noisereduce
 noisereduce
+reportlab

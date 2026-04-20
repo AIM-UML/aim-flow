@@ -50,6 +50,17 @@ class WhisperEngine:
         finally:
             temp_path.unlink(missing_ok=True)
 
+
+    def transcribe_file(self, audio_path: str) -> str:
+        """Transcribe an existing audio file path (used by meeting imports)."""
+        model = self._load_model()
+        result = model.transcribe(
+            audio_path,
+            fp16=False,
+            language=config.TRANSCRIPTION_LANGUAGE,
+        )
+        return result.get('text', '').strip()
+
     def _load_model(self):
         with self._lock:
             if self._model is None:
@@ -118,3 +129,5 @@ def process_transcription(text: str) -> tuple[str, str | None]:
             remaining = text[len(wake_word):].lstrip(" ,")
             return (remove_filler_words(remaining), service)
     return (remove_filler_words(text), None)
+
+

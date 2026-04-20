@@ -78,3 +78,32 @@ SYSTEM_PATH_FALLBACK = ":".join(
         )
     )
 )
+
+# Meeting recorder settings
+MEETING_OUTPUT_DIR = os.path.expanduser("~/Documents/AIM_Flow_Meetings")
+MEETING_HOTKEY = "<ctrl>+<shift>+m"
+OLLAMA_INSTALL_URL = "https://ollama.com/download"
+
+# Audio input settings
+SELECTED_MIC_INDEX: int | None = None
+MIC_PREFERENCE_FILE = os.path.expanduser("~/.aim_flow_mic_preference")
+
+
+def load_mic_preference() -> int | None:
+    """Load the user's saved microphone preference."""
+    if not os.path.exists(MIC_PREFERENCE_FILE):
+        return None
+    try:
+        with open(MIC_PREFERENCE_FILE, "r", encoding="utf-8") as handle:
+            value = handle.read().strip()
+        if not value:
+            return None
+        return int(value)
+    except Exception:
+        return None
+
+
+def save_mic_preference(device_index: int | None) -> None:
+    """Persist the selected microphone index."""
+    with open(MIC_PREFERENCE_FILE, "w", encoding="utf-8") as handle:
+        handle.write(str(device_index) if device_index is not None else "")
